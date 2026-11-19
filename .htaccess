@@ -1,0 +1,15 @@
+# ==============================================================================
+# MOBILE STORE POS — Root Apache Configuration for cPanel Deployment
+# ==============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Prevent direct access to internal source and configuration folders
+    RewriteRule ^(config|src|storage|sql|views|tests) - [F,L,NC]
+    RewriteRule \.(sql|log|env|ini|bak)$ - [F,L,NC]
+
+    # Forward public traffic to public directory
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

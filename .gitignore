@@ -1,0 +1,16 @@
+# Environment file (credentials & local store config)
+.env
+
+# Storage logs
+storage/logs/*.log
+storage/logs/*.txt
+
+# Test artifacts & cookies
+tests/cookie.txt
+tests/Audit*.php
+tests/TestSalePost.php
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
