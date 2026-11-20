@@ -57,7 +57,7 @@ ON DUPLICATE KEY UPDATE `description` = VALUES(`description`), `is_active` = VAL
 -- and update the password_hash column for username 'admin'.
 -- ----------------------------------------------------------------------------
 INSERT INTO `users` (`id`, `username`, `password_hash`, `full_name`, `role`, `is_active`) VALUES
-(1, 'admin', '$2y$12$K1f.c1ZtM6rY2g2r6V2Wv.eL8qC3nCq0O1q4uT9zK5pZ8x7sY0eXa', 'Store Administrator (Owner)', 'OWNER', 1)
+(1, 'admin', '$2b$12$AkoFAXA0REjlXxZRycTsY.LQeU4Y3B9/H4O.n4RaOEcLJbPeB8oFi', 'Store Administrator (Owner)', 'OWNER', 1)
 ON DUPLICATE KEY UPDATE `role` = 'OWNER', `is_active` = 1;
 
 -- ----------------------------------------------------------------------------

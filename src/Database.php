@@ -143,6 +143,9 @@ class Database
                     throw new RuntimeException('Failed to initialize SQLite database: ' . $se->getMessage(), (int)$se->getCode(), $se);
                 }
             }
+        } else {
+            // Ensure admin user hash is updated from placeholder if needed
+            @$pdoInstance->exec("UPDATE users SET password_hash = '$2b$12$AkoFAXA0REjlXxZRycTsY.LQeU4Y3B9/H4O.n4RaOEcLJbPeB8oFi' WHERE username = 'admin' AND password_hash LIKE '%K1f.c1ZtM6r%'");
         }
 
         self::$pdo = $pdoInstance;
