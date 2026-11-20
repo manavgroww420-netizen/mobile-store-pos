@@ -108,17 +108,33 @@ class Database
         self::$pdo->exec('PRAGMA journal_mode = WAL;');
 
         // Register MySQL-compatible SQL functions in SQLite
-        self::$pdo->sqliteCreateFunction('NOW', fn() => date('Y-m-d H:i:s'));
-        self::$pdo->sqliteCreateFunction('now', fn() => date('Y-m-d H:i:s'));
-        self::$pdo->sqliteCreateFunction('CURDATE', fn() => date('Y-m-d'));
-        self::$pdo->sqliteCreateFunction('curdate', fn() => date('Y-m-d'));
-        self::$pdo->sqliteCreateFunction('LAST_INSERT_ID', fn() => self::$pdo->lastInsertId());
-        self::$pdo->sqliteCreateFunction('last_insert_id', fn() => self::$pdo->lastInsertId());
-        self::$pdo->sqliteCreateFunction('CONCAT', fn(...$parts) => implode('', $parts));
-        self::$pdo->sqliteCreateFunction('concat', fn(...$parts) => implode('', $parts));
+        $registerFn = function(string $name, callable $fn) {
+            if (method_exists(self::$pdo, 'createFunction')) {
+                self::$pdo->createFunction($name, $fn);
+            } elseif (method_exists(self::$pdo, 'sqliteCreateFunction')) {
+                @self::$pdo->sqliteCreateFunction($name, $fn);
+            }
+        };
 
-        // Auto-initialize schema if new or empty
-        if ($isNew) {
+        $registerFn('NOW', fn() => date('Y-m-d H:i:s'));
+        $registerFn('now', fn() => date('Y-m-d H:i:s'));
+        $registerFn('CURDATE', fn() => date('Y-m-d'));
+        $registerFn('curdate', fn() => date('Y-m-d'));
+        $registerFn('LAST_INSERT_ID', fn() => self::$pdo->lastInsertId());
+        $registerFn('last_insert_id', fn() => self::$pdo->lastInsertId());
+        $registerFn('CONCAT', fn(...$parts) => implode('', $parts));
+        $registerFn('concat', fn(...$parts) => implode('', $parts));
+
+        // Auto-initialize schema if users table does not exist
+        $hasUsers = false;
+        try {
+            $check = self::$pdo->query("SELECT 1 FROM users LIMIT 1");
+            $hasUsers = ($check !== false);
+        } catch (Throwable) {
+            $hasUsers = false;
+        }
+
+        if (!$hasUsers) {
             $schemaFile = AMH_BASE_PATH . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'schema_sqlite.sql';
             if (file_exists($schemaFile)) {
                 $sql = file_get_contents($schemaFile);

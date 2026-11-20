@@ -51,6 +51,11 @@ class ErrorHandler
      */
     public static function handleError(int $severity, string $message, string $file, int $line): bool
     {
+        // Ignore deprecation notices
+        if ($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED) {
+            return false;
+        }
+
         // Respect error suppression operator (@)
         if (!(error_reporting() & $severity)) {
             return false;
