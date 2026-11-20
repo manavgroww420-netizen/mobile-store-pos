@@ -1,0 +1,8 @@
+{
+  "name": "manavgroww420/mobile-store-pos",
+  "description": "Mobile Store POS & Inventory Management System",
+  "type": "project",
+  "require": {
+    "php": ">=8.2"
+  }
+}
