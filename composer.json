@@ -3,6 +3,9 @@
   "description": "Mobile Store POS & Inventory Management System",
   "type": "project",
   "require": {
-    "php": ">=8.2"
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-pdo_sqlite": "*",
+    "ext-sqlite3": "*"
   }
 }

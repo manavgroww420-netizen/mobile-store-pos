@@ -48,6 +48,11 @@ class Database
         }
 
         $config = self::$customConfig ?? require AMH_CONFIG_PATH . DIRECTORY_SEPARATOR . 'database.php';
+        $driver = $config['driver'] ?? 'mysql';
+
+        if ($driver === 'sqlite') {
+            return self::initSqlite();
+        }
 
         $dsn = sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=%s',
@@ -66,14 +71,62 @@ class Database
             );
 
             return self::$pdo;
-        } catch (PDOException $e) {
-            // Mask raw database credentials and internal details
-            error_log('Database Connection Failure: ' . $e->getMessage());
-            throw new RuntimeException(
-                'Unable to connect to the shop database. Please verify MySQL service status and configuration.',
-                (int)$e->getCode()
-            );
+        } catch (PDOException|Throwable $e) {
+            error_log('MySQL Connection Failure (' . $e->getMessage() . '), attempting SQLite fallback...');
+            try {
+                return self::initSqlite();
+            } catch (Throwable $se) {
+                error_log('Database Connection Failure: ' . $se->getMessage());
+                throw new RuntimeException(
+                    'Unable to connect to the shop database. Please verify service status and configuration.',
+                    (int)$e->getCode()
+                );
+            }
         }
+    }
+
+    /**
+     * Initialize embedded SQLite database with custom functions and automatic schema seeding.
+     */
+    private static function initSqlite(): PDO
+    {
+        $storageDir = AMH_STORAGE_PATH;
+        if (!is_dir($storageDir)) {
+            @mkdir($storageDir, 0777, true);
+        }
+
+        $dbFile = $storageDir . DIRECTORY_SEPARATOR . 'database.sqlite';
+        $isNew = !file_exists($dbFile) || filesize($dbFile) === 0;
+
+        self::$pdo = new PDO('sqlite:' . $dbFile, null, null, [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]);
+
+        self::$pdo->exec('PRAGMA foreign_keys = ON;');
+        self::$pdo->exec('PRAGMA journal_mode = WAL;');
+
+        // Register MySQL-compatible SQL functions in SQLite
+        self::$pdo->sqliteCreateFunction('NOW', fn() => date('Y-m-d H:i:s'));
+        self::$pdo->sqliteCreateFunction('now', fn() => date('Y-m-d H:i:s'));
+        self::$pdo->sqliteCreateFunction('CURDATE', fn() => date('Y-m-d'));
+        self::$pdo->sqliteCreateFunction('curdate', fn() => date('Y-m-d'));
+        self::$pdo->sqliteCreateFunction('LAST_INSERT_ID', fn() => self::$pdo->lastInsertId());
+        self::$pdo->sqliteCreateFunction('last_insert_id', fn() => self::$pdo->lastInsertId());
+        self::$pdo->sqliteCreateFunction('CONCAT', fn(...$parts) => implode('', $parts));
+        self::$pdo->sqliteCreateFunction('concat', fn(...$parts) => implode('', $parts));
+
+        // Auto-initialize schema if new or empty
+        if ($isNew) {
+            $schemaFile = AMH_BASE_PATH . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'schema_sqlite.sql';
+            if (file_exists($schemaFile)) {
+                $sql = file_get_contents($schemaFile);
+                self::$pdo->exec($sql);
+            }
+        }
+
+        return self::$pdo;
     }
 
     /**
