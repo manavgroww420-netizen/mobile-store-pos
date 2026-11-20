@@ -145,7 +145,12 @@ class Database
             }
         } else {
             // Ensure admin user hash is updated from placeholder if needed
-            @$pdoInstance->exec("UPDATE users SET password_hash = '$2b$12$AkoFAXA0REjlXxZRycTsY.LQeU4Y3B9/H4O.n4RaOEcLJbPeB8oFi' WHERE username = 'admin' AND password_hash LIKE '%K1f.c1ZtM6r%'");
+            try {
+                $stmt = $pdoInstance->prepare("UPDATE users SET password_hash = :h WHERE username = 'admin' AND password_hash LIKE '%K1f.c1ZtM6r%'");
+                $stmt->execute([':h' => '$2b$12$AkoFAXA0REjlXxZRycTsY.LQeU4Y3B9/H4O.n4RaOEcLJbPeB8oFi']);
+            } catch (Throwable) {
+                // Ignore if users table schema varies
+            }
         }
 
         self::$pdo = $pdoInstance;
