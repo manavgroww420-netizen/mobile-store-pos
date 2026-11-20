@@ -116,8 +116,16 @@ class Database
         $registerFn('curdate', fn() => date('Y-m-d'));
         $registerFn('LAST_INSERT_ID', fn() => $pdoInstance->lastInsertId());
         $registerFn('last_insert_id', fn() => $pdoInstance->lastInsertId());
-        $registerFn('CONCAT', fn(...$parts) => implode('', $parts));
-        $registerFn('concat', fn(...$parts) => implode('', $parts));
+        $concatFn = function(...$parts) {
+            foreach ($parts as $p) {
+                if ($p === null) {
+                    return null;
+                }
+            }
+            return implode('', $parts);
+        };
+        $registerFn('CONCAT', $concatFn);
+        $registerFn('concat', $concatFn);
 
         // Auto-initialize schema if users table does not exist
         $hasUsers = false;
