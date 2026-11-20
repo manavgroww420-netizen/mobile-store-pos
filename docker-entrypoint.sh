@@ -12,7 +12,7 @@ if [ -z "$DB_HOST" ] || [ "$DB_HOST" = "127.0.0.1" ] || [ "$DB_HOST" = "localhos
     # Allow root connection from 127.0.0.1 with empty password
     mysql -e "CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY ''; GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION; FLUSH PRIVILEGES;" 2>/dev/null || true
 
-    if ! mysql -u root -h 127.0.0.1 -e "USE \`$DB_NAME\`;" 2>/dev/null; then
+    if ! mysql -u root -h 127.0.0.1 "$DB_NAME" -e "SELECT 1 FROM users LIMIT 1;" 2>/dev/null; then
         echo "Creating database $DB_NAME and importing schema..."
         mysql -u root -h 127.0.0.1 -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
         mysql -u root -h 127.0.0.1 "$DB_NAME" < /var/www/html/sql/schema.sql

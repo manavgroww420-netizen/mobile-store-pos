@@ -72,16 +72,11 @@ class Database
 
             return self::$pdo;
         } catch (PDOException|Throwable $e) {
-            error_log('MySQL Connection Failure (' . $e->getMessage() . '), attempting SQLite fallback...');
-            try {
-                return self::initSqlite();
-            } catch (Throwable $se) {
-                error_log('Database Connection Failure: ' . $se->getMessage());
-                throw new RuntimeException(
-                    'Unable to connect to the shop database. Please verify service status and configuration.',
-                    (int)$e->getCode()
-                );
-            }
+            error_log('Database Connection Failure: ' . $e->getMessage());
+            throw new RuntimeException(
+                'Unable to connect to the shop database. Please verify MySQL service status and configuration.',
+                (int)$e->getCode()
+            );
         }
     }
 
@@ -96,23 +91,22 @@ class Database
         }
 
         $dbFile = $storageDir . DIRECTORY_SEPARATOR . 'database.sqlite';
-        $isNew = !file_exists($dbFile) || filesize($dbFile) === 0;
 
-        self::$pdo = new PDO('sqlite:' . $dbFile, null, null, [
+        $pdoInstance = new PDO('sqlite:' . $dbFile, null, null, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
         ]);
 
-        self::$pdo->exec('PRAGMA foreign_keys = ON;');
-        self::$pdo->exec('PRAGMA journal_mode = WAL;');
+        $pdoInstance->exec('PRAGMA foreign_keys = ON;');
+        $pdoInstance->exec('PRAGMA journal_mode = WAL;');
 
         // Register MySQL-compatible SQL functions in SQLite
-        $registerFn = function(string $name, callable $fn) {
-            if (method_exists(self::$pdo, 'createFunction')) {
-                self::$pdo->createFunction($name, $fn);
-            } elseif (method_exists(self::$pdo, 'sqliteCreateFunction')) {
-                @self::$pdo->sqliteCreateFunction($name, $fn);
+        $registerFn = function(string $name, callable $fn) use ($pdoInstance) {
+            if (method_exists($pdoInstance, 'createFunction')) {
+                $pdoInstance->createFunction($name, $fn);
+            } elseif (method_exists($pdoInstance, 'sqliteCreateFunction')) {
+                @$pdoInstance->sqliteCreateFunction($name, $fn);
             }
         };
 
@@ -120,15 +114,15 @@ class Database
         $registerFn('now', fn() => date('Y-m-d H:i:s'));
         $registerFn('CURDATE', fn() => date('Y-m-d'));
         $registerFn('curdate', fn() => date('Y-m-d'));
-        $registerFn('LAST_INSERT_ID', fn() => self::$pdo->lastInsertId());
-        $registerFn('last_insert_id', fn() => self::$pdo->lastInsertId());
+        $registerFn('LAST_INSERT_ID', fn() => $pdoInstance->lastInsertId());
+        $registerFn('last_insert_id', fn() => $pdoInstance->lastInsertId());
         $registerFn('CONCAT', fn(...$parts) => implode('', $parts));
         $registerFn('concat', fn(...$parts) => implode('', $parts));
 
         // Auto-initialize schema if users table does not exist
         $hasUsers = false;
         try {
-            $check = self::$pdo->query("SELECT 1 FROM users LIMIT 1");
+            $check = $pdoInstance->query("SELECT 1 FROM users LIMIT 1");
             $hasUsers = ($check !== false);
         } catch (Throwable) {
             $hasUsers = false;
@@ -138,10 +132,20 @@ class Database
             $schemaFile = AMH_BASE_PATH . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'schema_sqlite.sql';
             if (file_exists($schemaFile)) {
                 $sql = file_get_contents($schemaFile);
-                self::$pdo->exec($sql);
+                $pdoInstance->beginTransaction();
+                try {
+                    $pdoInstance->exec($sql);
+                    $pdoInstance->commit();
+                } catch (Throwable $se) {
+                    if ($pdoInstance->inTransaction()) {
+                        $pdoInstance->rollBack();
+                    }
+                    throw new RuntimeException('Failed to initialize SQLite database: ' . $se->getMessage(), (int)$se->getCode(), $se);
+                }
             }
         }
 
+        self::$pdo = $pdoInstance;
         return self::$pdo;
     }
 
